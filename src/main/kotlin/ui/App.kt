@@ -39,8 +39,8 @@ fun App(navigator: Navigator) {
             contentAlignment = Alignment.Center
         ) {
             UserProfileCard(
-                onLoginSuccess = {
-                    navigator.navigateTo(Screen.Dashboard)
+                onLoginSuccess = { privateKey, password ->
+                    navigator.navigateTo(Screen.SaveKey(privateKey, password))
                 }
             )
         }
@@ -73,9 +73,107 @@ fun FilePickerButton(selectedFile: File?, onFileSelected: (File) -> Unit) {
     }
 }
 
+@Composable
+fun SaveKeyScreen(
+    onKeySaved: () -> Unit,
+    onCancel: () -> Unit
+) {
+    var selectedDrive by remember { mutableStateOf<File?>(null) }
+    var saveInProgress by remember { mutableStateOf(false) }
+    var saveResult by remember { mutableStateOf<String?>(null) }
+
+    val availableDrives = remember {
+        File.listRoots().filter { it.isDirectory && it.canWrite() }
+    }
+
+    Card(
+        modifier = Modifier
+            .width(400.dp)
+            .padding(16.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                "💾 Збереження захищеного ключа",
+                style = MaterialTheme.typography.h6,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+
+            Text(
+                "Оберіть флешку для збереження зашифрованого приватного ключа:",
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            // Список доступних дисків
+            availableDrives.forEach { drive ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { selectedDrive = drive }
+                        .padding(8.dp)
+                        .background(
+                            if (selectedDrive == drive) Color.LightGray.copy(alpha = 0.3f)
+                            else Color.Transparent
+                        ),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = selectedDrive == drive,
+                        onClick = { selectedDrive = drive }
+                    )
+                    Text(
+                        "${drive.absolutePath} (${drive.freeSpace / (1024 * 1024 * 1024)} GB вільний)",
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            if (saveInProgress) {
+                CircularProgressIndicator()
+            }
+
+            saveResult?.let { result ->
+                Text(
+                    result,
+                    color = if (result.contains("успішно")) Color.Green else Color.Red,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Button(
+                    onClick = onCancel,
+                    colors = ButtonDefaults.buttonColors(backgroundColor = Color.Gray)
+                ) {
+                    Text("Скасувати")
+                }
+
+                Button(
+                    onClick = {
+                        selectedDrive?.let { drive ->
+                            saveInProgress = true
+                            // Тут викликаємо логіку збереження ключа
+                            // Після завершення викликаємо onKeySaved()
+                        }
+                    },
+                    enabled = selectedDrive != null && !saveInProgress
+                ) {
+                    Text("Зберегти ключ")
+                }
+            }
+        }
+    }
+}
 
 @Composable
-fun UserProfileCard(onLoginSuccess: () -> Unit) {
+fun UserProfileCard(onLoginSuccess: (privateKey: String, password: String) -> Unit) {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var showPassword by remember { mutableStateOf(false) }
@@ -160,41 +258,17 @@ fun UserProfileCard(onLoginSuccess: () -> Unit) {
                             null, result, "Помилка логіна", javax.swing.JOptionPane.ERROR_MESSAGE
                         )
                     } else {
-                        onLoginSuccess()
+                        // Тут передаємо ключ і пароль
+                        val privateKey = "PRIVATE_KEY_STRING" // Отримати реально з LoginService
+                        onLoginSuccess(privateKey, password)
                     }
                 },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(backgroundColor = MaterialTheme.colors.onSurface)
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Увійти", color = MaterialTheme.colors.surface)
+                Text("Увійти")
             }
 
-            // ДОДАНО: Кнопка для тестування генерації ключів
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Button(
-                onClick = {
-                    testResult = apiClient.testKeyGeneration()
-                },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(backgroundColor = Color.Blue)
-            ) {
-                Text("Тест генерації ключів", color = Color.White)
-            }
-
-            // ДОДАНО: Відображення результату тесту
-            testResult?.let { result ->
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = result,
-                    style = MaterialTheme.typography.caption,
-                    color = if (result.contains("✅")) Color.Green else Color.Red,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color.LightGray)
-                        .padding(8.dp)
-                )
             }
         }
     }
-}
+

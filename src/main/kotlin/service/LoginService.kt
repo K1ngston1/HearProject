@@ -1,5 +1,4 @@
 package service
-
 import java.io.File
 import java.security.KeyPair
 import java.util.Base64
@@ -7,6 +6,7 @@ import com.google.gson.Gson
 
 class LoginService {
     private val apiClient = ApiClient()
+    private val keyStorageService = KeyStorageService() // Додано екземпляр KeyStorageService
     private var keyPair: KeyPair? = null
     private var publicKeyString: String? = null
     private val gson = Gson()
@@ -73,6 +73,25 @@ class LoginService {
 
         return if (isVerified) {
             println("✅ Вхід успішний!")
+
+            // Зберігаємо захищений ключ на флешку
+            selectedFile?.let { flashDrive ->
+                val keyFile = File(flashDrive, "encrypted_private_key.bin")
+                val privateKeyString = apiClient.privateKeyToString(keyPair!!.private)
+
+                val success = keyStorageService.encryptAndSavePrivateKey( // Виправлено виклик
+                    privateKeyString,
+                    password,
+                    keyFile
+                )
+
+                if (success) {
+                    println("🔐 Приватний ключ успішно збережено на флешку: ${keyFile.absolutePath}")
+                } else {
+                    println("⚠️ Не вдалося зберегти ключ на флешку")
+                }
+            }
+
             null // Успішний вхід
         } else {
             "❌ Помилка верифікації підпису"
