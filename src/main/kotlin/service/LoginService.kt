@@ -2,92 +2,95 @@ package service
 
 import java.io.File
 import java.security.KeyPair
+import java.util.Base64
+import com.google.gson.Gson
 
 class LoginService {
     private val apiClient = ApiClient()
     private var keyPair: KeyPair? = null
     private var publicKeyString: String? = null
+    private val gson = Gson()
 
-    /**
-     * Повертає:
-     * - null → успішний вхід
-     * - String → текст помилки
-     */
     fun login(username: String, password: String, selectedFile: File? = null): String? {
-        // Порожні поля
-        if (username.isBlank() || password.isBlank()) {
-            return "Логін та пароль не можуть бути порожніми"
-        }
+        if (username.isBlank() || password.isBlank()) return "Логін та пароль не можуть бути порожніми"
+        if (isProbablyPassword(username)) return "Помилка: у полі логіна введено пароль"
+        if (isProbablyUsername(password)) return "Помилка: у полі пароля введено логін"
 
-        // Перевірка переплутаних полів
-        if (isProbablyPassword(username)) {
-            return "Помилка: у полі логіна введено пароль"
-        }
-        if (isProbablyUsername(password)) {
-            return "Помилка: у полі пароля введено логін"
-        }
-
-        // Генерація ключової пари Ed25519
         keyPair = apiClient.generateKeyPair()
         publicKeyString = apiClient.publicKeyToString(keyPair!!.public)
 
-        // Виводимо ключі в консоль при логіні
         println("🔐 КЛЮЧІ ПРИ ЛОГІНІ:")
         println("👤 Користувач: $username")
         println("📋 Публічний ключ: $publicKeyString")
         println("🔒 Приватний ключ: ${apiClient.privateKeyToString(keyPair!!.private)}")
         println()
 
-        // Виклик API для отримання challenge
-        val response = apiClient.sendLoginData(
-            url = "http://localhost:8000/auth/register", // Оновлений URL
+        // Спочатку реєструємо користувача
+        val registerResponse = apiClient.sendLoginData(
+            url = "http://localhost:8000/auth/register",
             username = username,
             publicKey = publicKeyString!!
         )
 
-        return if (response.contains("error", ignoreCase = true)) {
-            response // якщо API повернув помилку → показуємо користувачу
+        println("📨 Відповідь реєстрації: $registerResponse")
+
+        // Перевіряємо наявність помилок
+        if (registerResponse.contains("error", ignoreCase = true) ||
+            registerResponse.contains("detail", ignoreCase = true)) {
+            return "Помилка реєстрації: $registerResponse"
+        }
+
+        // Отримуємо user_id з відповіді
+        val userId = apiClient.extractUserIdFromResponse(registerResponse)
+        if (userId == null) {
+            return "Помилка: не вдалося отримати user_id з відповіді: $registerResponse"
+        }
+
+        println("✅ Користувач зареєстрований, user_id: $userId")
+
+        // Запитуємо challenge
+        val challengeResponse = apiClient.requestChallenge(userId)
+        println("📨 Відповідь challenge: $challengeResponse")
+
+        val challenge = extractChallengeFromResponse(challengeResponse)
+        if (challenge == null) {
+            return "Помилка: не вдалося отримати challenge: $challengeResponse"
+        }
+
+        println("🔑 Отримано challenge: ${challenge.take(20)}...")
+
+        // ВИПРАВЛЕННЯ: підписуємо raw байти challenge (після розкодування з Base64)
+        val challengeBytes = Base64.getDecoder().decode(challenge)
+        val signature = apiClient.signMessage(keyPair!!.private, challenge)
+
+        println("✍️ ПІДПИС:")
+        println("📝 Повідомлення для підпису (Base64): ${challenge.take(20)}...")
+        println("📏 Розмір challenge: ${challengeBytes.size} байт")
+        println("🔏 Підпис: $signature")
+
+        // Верифікуємо підпис
+        val isVerified = apiClient.verifySignature(userId, challenge, signature)
+
+        return if (isVerified) {
+            println("✅ Вхід успішний!")
+            null // Успішний вхід
         } else {
-            // Тут буде обробка challenge та відправка підпису
-            processChallenge(response, password)
+            "❌ Помилка верифікації підпису"
         }
     }
 
-    private fun processChallenge(challengeResponse: String, password: String): String? {
+    private fun extractChallengeFromResponse(response: String): String? {
         return try {
-            // Парсимо challenge з відповіді сервера
-            val challenge = challengeResponse // Тимчасово, потрібно парсити JSON
-
-            // Створюємо повідомлення для підпису: challenge + пароль
-            val messageToSign = "$challenge:$password"
-
-            // Підписуємо повідомлення
-            val signature = apiClient.signMessage(keyPair!!.private, messageToSign)
-
-            // Виводимо інформацію про підпис в консоль
-            println("✍️ ПІДПИС ПРИ ЛОГІНІ:")
-            println("📝 Повідомлення: $messageToSign")
-            println("🔏 Підпис: $signature")
-            println("📏 Довжина підпису: ${signature.length} символів")
-            println()
-
-            // Відправляємо підпис на сервер для верифікації
-            // (тут потрібно додати метод для відправки підпису)
-            null // Тимчасово повертаємо null - успішний вхід
+            val jsonMap = gson.fromJson(response, Map::class.java)
+            jsonMap["challenge"] as? String
         } catch (e: Exception) {
-            val errorMessage = "Помилка обробки challenge: ${e.message}"
-            println("❌ $errorMessage")
-            errorMessage
+            null
         }
     }
 
-    private fun isProbablyPassword(value: String): Boolean {
-        val hasDigit = value.any { it.isDigit() }
-        val hasSpecial = value.any { !it.isLetterOrDigit() }
-        return (hasDigit || hasSpecial) && value.length >= 6
-    }
+    private fun isProbablyPassword(value: String) =
+        (value.any { it.isDigit() } || value.any { !it.isLetterOrDigit() }) && value.length >= 6
 
-    private fun isProbablyUsername(value: String): Boolean {
-        return value.all { it.isLetter() } && value.length in 3..12
-    }
+    private fun isProbablyUsername(value: String) =
+        value.all { it.isLetter() } && value.length in 3..12
 }

@@ -20,6 +20,7 @@ dependencies {
     implementation(compose.desktop.currentOs)
     implementation("com.squareup.okhttp3:okhttp:4.11.0")
 
+    implementation("com.google.code.gson:gson:2.10.1")
     // Crypto - використовуємо kotlin-crypto замість turingcomplete
 //    implementation("org.kotlincrypto:core:0.3.0")
 //    implementation("org.kotlincrypto:hashes:0.3.0")
@@ -31,7 +32,7 @@ dependencies {
 
     // JSON
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.15.2")
-
+    implementation("org.json:json:20230227")
     // BouncyCastle
     implementation("org.bouncycastle:bcprov-jdk15on:1.70")
     implementation("com.goterl:lazysodium-java:5.1.1")
