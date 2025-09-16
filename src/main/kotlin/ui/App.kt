@@ -1,6 +1,7 @@
 package com.example.ui
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -79,7 +80,10 @@ fun UserProfileCard(onLoginSuccess: () -> Unit) {
     var password by remember { mutableStateOf("") }
     var showPassword by remember { mutableStateOf(false) }
     var selectedFile by remember { mutableStateOf<File?>(null) }
+    var testResult by remember { mutableStateOf<String?>(null) }
+
     val loginService = remember { LoginService() }
+    val apiClient = remember { ApiClient() }
 
     val avatarBitmap: ImageBitmap? = remember {
         val stream: InputStream? = object {}.javaClass.getResourceAsStream("/avatar.png")
@@ -93,7 +97,7 @@ fun UserProfileCard(onLoginSuccess: () -> Unit) {
         elevation = 8.dp,
         modifier = Modifier
             .width(320.dp)
-            .height(420.dp)
+            .height(500.dp) // Збільшимо висоту для нової кнопки
     ) {
         Column(
             modifier = Modifier
@@ -163,6 +167,33 @@ fun UserProfileCard(onLoginSuccess: () -> Unit) {
                 colors = ButtonDefaults.buttonColors(backgroundColor = MaterialTheme.colors.onSurface)
             ) {
                 Text("Увійти", color = MaterialTheme.colors.surface)
+            }
+
+            // ДОДАНО: Кнопка для тестування генерації ключів
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Button(
+                onClick = {
+                    testResult = apiClient.testKeyGeneration()
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(backgroundColor = Color.Blue)
+            ) {
+                Text("Тест генерації ключів", color = Color.White)
+            }
+
+            // ДОДАНО: Відображення результату тесту
+            testResult?.let { result ->
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = result,
+                    style = MaterialTheme.typography.caption,
+                    color = if (result.contains("✅")) Color.Green else Color.Red,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.LightGray)
+                        .padding(8.dp)
+                )
             }
         }
     }

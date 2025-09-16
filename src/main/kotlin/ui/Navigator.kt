@@ -9,6 +9,7 @@ import androidx.compose.ui.window.rememberWindowState
 import androidx.compose.material.*
 import androidx.compose.ui.unit.dp
 import com.example.ui.UserProfileCard
+import androidx.compose.ui.Alignment
 
 /**
  * Простий навігаційний об'єкт для Compose Desktop
@@ -26,9 +27,15 @@ class Navigator {
 
     @Composable
     fun StartApp() {
-        val windowState = rememberWindowState(width = 600.dp, height = 700.dp)
+        val windowState = rememberWindowState(
+            width = 600.dp,
+            height = 700.dp,
+            placement = androidx.compose.ui.window.WindowPlacement.Floating, // "плаваюче" вікно
+            position = androidx.compose.ui.window.WindowPosition.Aligned(Alignment.Center) // по центру
+        )
+
         Window(
-            onCloseRequest = { kotlin.system.exitProcess(0) }, // <-- замість ::exitApplication
+            onCloseRequest = { kotlin.system.exitProcess(0) },
             title = "Hear Projects",
             state = windowState
         ) {
@@ -39,8 +46,8 @@ class Navigator {
                 }
             }
         }
-
     }
+
 }
 
 /**
@@ -56,13 +63,18 @@ sealed class Screen {
  */
 @Composable
 fun LoginScreen(navigator: Navigator) {
-    // Твій UserProfileCard можна тут вставити
-    UserProfileCard(
-        onLoginSuccess = {
-            navigator.navigateTo(Screen.Dashboard)
-        }
-    )
+    Box(
+        modifier = androidx.compose.ui.Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center // центр по вертикалі і горизонталі
+    ) {
+        UserProfileCard(
+            onLoginSuccess = {
+                navigator.navigateTo(Screen.Dashboard)
+            }
+        )
+    }
 }
+
 
 /**
  * Простий екран після логіна

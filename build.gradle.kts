@@ -13,18 +13,29 @@ repositories {
     mavenCentral()
     maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
     google()
+    maven("https://jitpack.io") // Додано для kotlin-onetimepassword
 }
 
 dependencies {
-    // Note, if you develop a library, you should use compose.desktop.common.
-    // compose.desktop.currentOs should be used in launcher-sourceSet
-    // (in a separate module for demo project and in testMain).
-    // With compose.desktop.common you will also lose @Preview functionality
-
     implementation(compose.desktop.currentOs)
     implementation("com.squareup.okhttp3:okhttp:4.11.0")
-    implementation("dev.whyoleg.cryptography:cryptography-core:0.5.0") // Core API
-    implementation("dev.whyoleg.cryptography:cryptography-provider-optimal:0.5.0") // Optimal p
+
+    // Crypto - використовуємо kotlin-crypto замість turingcomplete
+//    implementation("org.kotlincrypto:core:0.3.0")
+//    implementation("org.kotlincrypto:hashes:0.3.0")
+//    implementation("org.kotlincrypto:signatures:0.3.0")
+//    implementation("org.kotlincrypto.signature:signature-ed25519:0.3.0")
+
+    // TOTP генератор (альтернатива)
+    implementation("com.eatthepath:java-otp:0.4.0")
+
+    // JSON
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.15.2")
+
+    // BouncyCastle
+    implementation("org.bouncycastle:bcprov-jdk15on:1.70")
+    implementation("com.goterl:lazysodium-java:5.1.1")
+    implementation("net.java.dev.jna:jna:5.13.0")
 }
 
 compose.desktop {
